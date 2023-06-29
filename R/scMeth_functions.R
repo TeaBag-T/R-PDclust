@@ -58,11 +58,17 @@ divide_cores <- function(total, ncores = cores_to_use) {
 #' 2. Start/Position column, named "start"
 #' 3. Percentage or fractional methylation column, named "meth" (between 0-100 or 0-1)
 #'
+library(doParallel)
+library(foreach)
+
 create_pairwise_master <- function(cpg, digital = TRUE, cores_to_use = 2, calcdiff = TRUE){
-  doMC::registerDoMC(cores_to_use)
+  cl <- makeCluster(cores_to_use)  # Cluster mit der gewünschten Anzahl von Kernen erstellen
+  registerDoParallel(cl)  # Registrieren des Clusters für die Parallelisierung
+  
   # Generate combinations
   comb.names <- utils::combn(names(cpg),2)
   total_batch <- divide_cores(ncol(comb.names), cores_to_use)
+  
   # Combine
   pairwise <- foreach(i=1:nrow(total_batch), .combine = c) %dopar% {
     start <- total_batch[i,1]
@@ -86,6 +92,9 @@ create_pairwise_master <- function(cpg, digital = TRUE, cores_to_use = 2, calcdi
     }
     merge_bind
   }
+  
+  stopCluster(cl)  # Cluster beenden
+  
   if (calcdiff) {
     pairwise <- suppressWarnings(bind_rows(pairwise))
     return(tbl_df(pairwise))
@@ -93,6 +102,7 @@ create_pairwise_master <- function(cpg, digital = TRUE, cores_to_use = 2, calcdi
     return(pairwise)
   }
 }
+
 
 #' Get Dissimilarity from a pairwise common data frame
 #'
